@@ -359,11 +359,18 @@ const thumbCache = {};   // car.id → url | null
 
 async function fetchThumb(car) {
   if (car.id in thumbCache) return thumbCache[car.id];
-  const map = {hatch:'1541899481282-d53bffe3c35d',sedan:'1502877338535-766e1452684a',suv:'1519641471654-76ce0107ad1b',lsuv:'1563720223185-11003d516935',luxury:'1555215695-3004980ad54e',minivan:'1533473359331-0135ef1b58bf'};
-  const zones = JSON.stringify(car.blurZones);
-  const type = zones.includes('"w":0.50') ? 'hatch' : zones.includes('"w":0.70') && zones.includes('"h":0.22') ? 'lsuv' : zones.includes('"w":0.50,"h":0.18') ? 'luxury' : zones.includes('"w":0.60') ? 'suv' : zones.includes('"w":0.60,"h":0.08') ? 'sedan' : 'minivan';
-  thumbCache[car.id] = 'https://images.unsplash.com/photo-' + (map[type]||map.suv) + '?w=640&q=80&auto=format&fit=crop';
-  return thumbCache[car.id];
+  try {
+    const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(car.wiki)}&prop=pageimages&format=json&pithumbsize=640&origin=*`;
+    const r = await fetch(url);
+    if (!r.ok) { thumbCache[car.id] = null; return null; }
+    const d = await r.json();
+    const pages = d.query?.pages;
+    const imgUrl = pages ? (Object.values(pages)[0]?.thumbnail?.source || null) : null;
+    thumbCache[car.id] = imgUrl;
+    return imgUrl;
+  } catch {}
+  thumbCache[car.id] = null;
+  return null;
 }
 
 async function prefetchRound(ri, onProgress) {
@@ -484,6 +491,7 @@ function loadCarOnCanvas(car, onReady) {
     return;
   }
   const img = new Image();
+  img.crossOrigin = 'anonymous';
   img.onload = () => {
     try {
       applyBlurZones(img, canvas, car.blurZones);
