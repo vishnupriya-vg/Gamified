@@ -360,13 +360,17 @@ const thumbCache = {};   // car.id → url | null
 async function fetchThumb(car) {
   if (car.id in thumbCache) return thumbCache[car.id];
   try {
-    const apiUrl = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(car.wiki);
-    const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(apiUrl));
+    const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(car.wiki)}&prop=pageimages&format=json&pithumbsize=640&origin=*`;
+    const r = await fetch(url);
     if (!r.ok) { thumbCache[car.id] = null; return null; }
     const d = await r.json();
-    const imgUrl = d.originalimage?.source || d.thumbnail?.source || null;
-    thumbCache[car.id] = imgUrl;
-    return imgUrl;
+    const pages = d.query?.pages;
+    if (pages) {
+      const page = Object.values(pages)[0];
+      const imgUrl = page?.thumbnail?.source || null;
+      thumbCache[car.id] = imgUrl;
+      return imgUrl;
+    }
   } catch {}
   thumbCache[car.id] = null;
   return null;
